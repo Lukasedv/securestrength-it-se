@@ -60,7 +60,6 @@ const STARTING_STRENGTH_PROGRAMS: WorkoutDay[] = [
 function App() {
   const [currentWorkout, setCurrentWorkout] = useKV<WorkoutDay | null>('current-workout', null)
   const [activeTab, setActiveTab] = useState('timer')
-  const [isTimerActive, setIsTimerActive] = useState(false)
 
   const startWorkout = (workoutDay: WorkoutDay) => {
     const freshWorkout = {
@@ -73,7 +72,7 @@ function App() {
 
   const completeWorkout = () => {
     setCurrentWorkout(null)
-    setIsTimerActive(false)
+    setActiveTab('timer')
   }
 
   return (
@@ -137,8 +136,6 @@ function App() {
             <TabsContent value="timer" className="mt-6">
               <WorkoutTimer 
                 workout={currentWorkout}
-                isActive={isTimerActive}
-                onTimerStateChange={setIsTimerActive}
                 onWorkoutComplete={completeWorkout}
               />
             </TabsContent>
