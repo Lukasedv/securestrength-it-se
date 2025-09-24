@@ -2,11 +2,8 @@ import { useState, useEffect } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
-import { FastForward } from '@phosphor-icons/react'
-import { SecurityQuiz } from '@/components/SecurityQuiz'
+import { FastForward, CaretLeft, CaretRight, Shield } from '@phosphor-icons/react'
 import { WorkoutDay, Exercise } from '@/App'
 
 interface WorkoutTimerProps {
@@ -15,6 +12,64 @@ interface WorkoutTimerProps {
 }
 
 type WorkoutState = 'input' | 'resting' | 'complete'
+
+interface SecurityQuestion {
+  id: string
+  question: string
+  answer: boolean // true = Yes, false = No
+  explanation: string
+}
+
+const SECURITY_QUESTIONS: SecurityQuestion[] = [
+  {
+    id: 'password-reuse',
+    question: 'Is it safe to use the same password for multiple accounts?',
+    answer: false,
+    explanation: 'No - Using the same password across multiple accounts creates a single point of failure.'
+  },
+  {
+    id: 'public-wifi-banking',
+    question: 'Should you do online banking on public Wi-Fi?',
+    answer: false,
+    explanation: 'No - Public Wi-Fi networks are often unsecured and can be monitored by attackers.'
+  },
+  {
+    id: 'software-updates',
+    question: 'Are software updates important for security?',
+    answer: true,
+    explanation: 'Yes - Updates often include critical security patches that fix vulnerabilities.'
+  },
+  {
+    id: 'email-links',
+    question: 'Should you click links in emails from unknown senders?',
+    answer: false,
+    explanation: 'No - Links from unknown senders could lead to malicious websites or downloads.'
+  },
+  {
+    id: 'two-factor-auth',
+    question: 'Does two-factor authentication make your accounts more secure?',
+    answer: true,
+    explanation: 'Yes - 2FA adds an extra layer of security beyond just passwords.'
+  },
+  {
+    id: 'usb-devices',
+    question: 'Is it safe to plug in USB drives you find lying around?',
+    answer: false,
+    explanation: 'No - Unknown USB devices could contain malware or be part of a social engineering attack.'
+  },
+  {
+    id: 'backup-importance',
+    question: 'Are regular backups important for data security?',
+    answer: true,
+    explanation: 'Yes - Backups protect against data loss from ransomware, hardware failure, or accidents.'
+  },
+  {
+    id: 'social-media-info',
+    question: 'Should you share personal information like your address on social media?',
+    answer: false,
+    explanation: 'No - Personal information on social media can be used by attackers for identity theft or social engineering.'
+  }
+]
 
 interface WorkoutSession {
   workoutId: string
@@ -26,6 +81,9 @@ interface WorkoutSession {
   timerRunning: boolean
   canSkip: boolean
   actualReps: number
+  currentQuestion?: SecurityQuestion
+  showQuizResult: boolean
+  userAnswer?: boolean
 }
 
 const DEFAULT_SESSION: WorkoutSession = {
@@ -37,28 +95,34 @@ const DEFAULT_SESSION: WorkoutSession = {
   initialTime: 180,
   timerRunning: false,
   canSkip: false,
-  actualReps: 0
+  actualReps: 0,
+  showQuizResult: false
 }
 
 export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) {
   const [session, setSession] = useKV<WorkoutSession>('workout-session', DEFAULT_SESSION)
-  const [repsInput, setRepsInput] = useState('')
+  const [repsCount, setRepsCount] = useState(0)
   
   // Reset session if workout changed
   useEffect(() => {
     if (session && session.workoutId !== workout.id) {
-      setSession({
+      const newSession = {
         ...DEFAULT_SESSION,
         workoutId: workout.id
-      })
-      setRepsInput('')
+      }
+      setSession(newSession)
+      setRepsCount(0)
     }
   }, [workout.id, session, setSession])
 
-  // Sync timer state with parent
+  // Initialize reps count based on current exercise
   useEffect(() => {
-    // Timer state syncing is handled internally now
-  }, [])
+    const exercise = getCurrentExercise()
+    if (exercise && session?.state === 'input') {
+      const targetReps = parseInt(exercise.targetReps) || 5
+      setRepsCount(targetReps)
+    }
+  }, [session?.currentExerciseIndex, session?.state])
 
   // Rest timer countdown
   useEffect(() => {
@@ -125,40 +189,57 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
     return workout.exercises[session.currentExerciseIndex] || null
   }
 
-  const handleSetDone = () => {
-    const reps = parseInt(repsInput) || 0
-    if (reps <= 0 || !session) return
+  const getRandomQuestion = () => {
+    return SECURITY_QUESTIONS[Math.floor(Math.random() * SECURITY_QUESTIONS.length)]
+  }
 
+  const handleSetDone = () => {
+    if (repsCount <= 0 || !session) return
+
+    const question = getRandomQuestion()
     setSession((prev: WorkoutSession) => ({
       ...prev,
-      actualReps: reps,
+      actualReps: repsCount,
       state: 'resting',
       timerRunning: true,
       timeLeft: 180,
       initialTime: 180,
-      canSkip: false
-    }))
-    setRepsInput('')
-  }
-
-  const handleCorrectAnswer = () => {
-    if (!session) return
-    setSession((prev: WorkoutSession) => ({
-      ...prev,
-      canSkip: true
-    }))
-  }
-
-  const handleWrongAnswer = () => {
-    if (!session) return
-    // Wrong answer - user must redo the set
-    setSession((prev: WorkoutSession) => ({
-      ...prev,
-      state: 'input',
-      timerRunning: false,
       canSkip: false,
-      actualReps: 0
+      currentQuestion: question,
+      showQuizResult: false
     }))
+  }
+
+  const handleQuizAnswer = (answer: boolean) => {
+    if (!session?.currentQuestion) return
+    
+    const isCorrect = answer === session.currentQuestion.answer
+    setSession((prev: WorkoutSession) => ({
+      ...prev,
+      userAnswer: answer,
+      showQuizResult: true,
+      canSkip: isCorrect
+    }))
+
+    if (!isCorrect) {
+      // Wrong answer - user must redo the set after showing explanation
+      setTimeout(() => {
+        setSession((prev: WorkoutSession) => ({
+          ...prev,
+          state: 'input',
+          timerRunning: false,
+          canSkip: false,
+          actualReps: 0,
+          showQuizResult: false,
+          currentQuestion: undefined,
+          userAnswer: undefined
+        }))
+        const exercise = getCurrentExercise()
+        if (exercise) {
+          setRepsCount(parseInt(exercise.targetReps) || 5)
+        }
+      }, 3000) // Show result for 3 seconds
+    }
   }
 
   const handleSkipToNextSet = () => {
@@ -182,6 +263,7 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
         }))
       } else {
         // Move to next exercise
+        const nextExercise = workout.exercises[session.currentExerciseIndex + 1]
         setSession((prev: WorkoutSession) => ({
           ...prev,
           currentExerciseIndex: prev.currentExerciseIndex + 1,
@@ -189,8 +271,12 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
           state: 'input',
           timerRunning: false,
           canSkip: false,
-          actualReps: 0
+          actualReps: 0,
+          showQuizResult: false,
+          currentQuestion: undefined,
+          userAnswer: undefined
         }))
+        setRepsCount(parseInt(nextExercise.targetReps) || 5)
       }
     } else {
       // Move to next set of same exercise
@@ -200,8 +286,12 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
         state: 'input',
         timerRunning: false,
         canSkip: false,
-        actualReps: 0
+        actualReps: 0,
+        showQuizResult: false,
+        currentQuestion: undefined,
+        userAnswer: undefined
       }))
+      setRepsCount(parseInt(currentExercise.targetReps) || 5)
     }
   }
 
@@ -209,6 +299,10 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  const adjustReps = (delta: number) => {
+    setRepsCount(prev => Math.max(0, prev + delta))
   }
 
   // Early return if session is not loaded
@@ -239,81 +333,136 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
   const totalSets = workout.exercises.reduce((sum, ex) => sum + ex.sets, 0)
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-center">{workout.name}</CardTitle>
-          <div className="text-center text-sm text-muted-foreground">
-            Set {Math.floor(completedSets) + 1} of {totalSets}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="text-center space-y-2">
-            <h3 className="text-2xl font-semibold">{currentExercise.name}</h3>
-            <p className="text-muted-foreground">
-              Set {session.currentSet} of {currentExercise.sets} × {currentExercise.targetReps} reps
-            </p>
-          </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-center">{workout.name}</CardTitle>
+        <div className="text-center text-sm text-muted-foreground">
+          Set {Math.floor(completedSets) + 1} of {totalSets}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="text-center space-y-2">
+          <h3 className="text-2xl font-semibold">{currentExercise.name}</h3>
+          <p className="text-muted-foreground">
+            Set {session.currentSet} of {currentExercise.sets} × {currentExercise.targetReps} reps
+          </p>
+        </div>
 
-          {session.state === 'input' && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="reps-input">How many reps did you complete?</Label>
-                <Input
-                  id="reps-input"
-                  type="number"
-                  value={repsInput}
-                  onChange={(e) => setRepsInput(e.target.value)}
-                  placeholder={`Target: ${currentExercise.targetReps}`}
-                  className="text-center text-lg"
-                  min="0"
-                />
+        {session.state === 'input' && (
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <p className="text-center text-sm font-medium">How many reps did you complete?</p>
+              <div className="flex items-center justify-center gap-4">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => adjustReps(-1)}
+                  disabled={repsCount <= 0}
+                  className="h-12 w-12 p-0"
+                >
+                  <CaretLeft size={20} />
+                </Button>
+                <div className="text-3xl font-bold tabular-nums text-primary min-w-[60px] text-center">
+                  {repsCount}
+                </div>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => adjustReps(1)}
+                  className="h-12 w-12 p-0"
+                >
+                  <CaretRight size={20} />
+                </Button>
               </div>
+            </div>
+            <Button 
+              onClick={handleSetDone}
+              disabled={repsCount <= 0}
+              className="w-full"
+              size="lg"
+            >
+              Set Done
+            </Button>
+          </div>
+        )}
+
+        {session.state === 'resting' && (
+          <div className="space-y-6">
+            <div className="text-center space-y-2">
+              <div className="text-4xl font-bold tabular-nums text-primary">
+                {formatTime(session.timeLeft)}
+              </div>
+              <Progress value={progress} className="h-3" />
+              <p className="text-sm text-muted-foreground">
+                Rest time - You did {session.actualReps} reps
+              </p>
+            </div>
+
+            {session.canSkip && (
               <Button 
-                onClick={handleSetDone}
-                disabled={!repsInput || parseInt(repsInput) <= 0}
-                className="w-full"
+                onClick={handleSkipToNextSet}
+                variant="outline"
+                className="w-full flex items-center gap-2"
                 size="lg"
               >
-                Set Done
+                <FastForward size={20} />
+                Skip to Next Set
               </Button>
-            </div>
-          )}
+            )}
 
-          {session.state === 'resting' && (
-            <div className="space-y-4">
-              <div className="text-center space-y-2">
-                <div className="text-4xl font-bold tabular-nums text-primary">
-                  {formatTime(session.timeLeft)}
+            {/* Security Quiz integrated into the same card */}
+            {session.currentQuestion && (
+              <div className="border-t pt-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-lg font-semibold">
+                    <Shield size={20} className="text-primary" />
+                    Security Quiz
+                  </div>
+                  
+                  {!session.showQuizResult ? (
+                    <div className="space-y-3">
+                      <p className="text-sm font-medium">{session.currentQuestion.question}</p>
+                      <div className="flex gap-3">
+                        <Button 
+                          onClick={() => handleQuizAnswer(true)}
+                          className="flex-1"
+                          size="lg"
+                        >
+                          Yes
+                        </Button>
+                        <Button 
+                          onClick={() => handleQuizAnswer(false)}
+                          variant="outline"
+                          className="flex-1"
+                          size="lg"
+                        >
+                          No
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 text-center">
+                      <div className={`p-4 rounded-md ${
+                        session.canSkip ? 'bg-accent/10 text-accent' : 'bg-destructive/10 text-destructive'
+                      }`}>
+                        <div className="text-lg font-semibold mb-2">
+                          {session.canSkip ? '✅ Correct!' : '❌ Wrong answer, redo the last set.'}
+                        </div>
+                        <p className="text-sm">{session.currentQuestion.explanation}</p>
+                      </div>
+                      {session.canSkip && (
+                        <p className="text-sm text-muted-foreground">
+                          You can now skip to the next set or wait for the rest timer to finish.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <Progress value={progress} className="h-3" />
-                <p className="text-sm text-muted-foreground">
-                  Rest time - You did {session.actualReps} reps
-                </p>
               </div>
-
-              {session.canSkip && (
-                <Button 
-                  onClick={handleSkipToNextSet}
-                  variant="outline"
-                  className="w-full flex items-center gap-2"
-                  size="lg"
-                >
-                  <FastForward size={20} />
-                  Skip to Next Set
-                </Button>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {session.state === 'resting' && (
-        <SecurityQuiz 
-          onCorrectAnswer={handleCorrectAnswer}
-          onWrongAnswer={handleWrongAnswer}
-        />
-      )}
-    </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }
