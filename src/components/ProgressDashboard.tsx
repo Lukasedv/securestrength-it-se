@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { TrendUp, Calendar, CheckCircle, Shield } from '@phosphor-icons/react'
+import { SecurityTipCard } from './SecurityTipCard'
 
 interface WorkoutHistory {
   date: string
@@ -179,6 +180,9 @@ export function ProgressDashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Security Tips Section */}
+      <SecurityTipCard />
     </div>
   )
 }
