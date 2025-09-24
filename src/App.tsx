@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { WorkoutTimer } from '@/components/WorkoutTimer'
 import { ExerciseLogger } from '@/components/ExerciseLogger'
 import { ProgressDashboard } from '@/components/ProgressDashboard'
-import { TrendUp, Timer, BookOpen } from '@phosphor-icons/react'
+import { UserSettings } from '@/components/UserSettings'
+import { TrendUp, Timer, BookOpen, Gear } from '@phosphor-icons/react'
 
 export interface Exercise {
   id: string
@@ -60,6 +62,7 @@ const STARTING_STRENGTH_PROGRAMS: WorkoutDay[] = [
 function App() {
   const [currentWorkout, setCurrentWorkout] = useKV<WorkoutDay | null>('current-workout', null)
   const [activeTab, setActiveTab] = useState('timer')
+  const [showSettings, setShowSettings] = useState(false)
 
   const startWorkout = (workoutDay: WorkoutDay) => {
     const freshWorkout = {
@@ -79,11 +82,27 @@ function App() {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-6 max-w-4xl">
         <header className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">SecureStrength</h1>
-          <p className="text-muted-foreground">Build strength and security knowledge</p>
+          <div className="flex items-center justify-between mb-4">
+            <div></div> {/* Spacer for centering */}
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">SecureStrength</h1>
+              <p className="text-muted-foreground">Build strength and security knowledge</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSettings(true)}
+              className="flex items-center gap-2"
+            >
+              <Gear size={16} />
+              Settings
+            </Button>
+          </div>
         </header>
 
-        {!currentWorkout ? (
+        {showSettings ? (
+          <UserSettings onClose={() => setShowSettings(false)} />
+        ) : !currentWorkout ? (
           <div className="space-y-6">
             <Card>
               <CardHeader>
