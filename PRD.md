@@ -13,11 +13,12 @@ A focused workout timer application that combines Starting Strength methodology 
 ## Essential Features
 
 **Workout Timer**
-- Functionality: Customizable rest period timers between sets (typically 3-5 minutes for compound lifts)
-- Purpose: Ensures proper recovery time following Starting Strength protocol
+- Functionality: Customizable rest period timers between sets (typically 3-5 minutes for compound lifts) with skip option and persistent state
+- Purpose: Ensures proper recovery time following Starting Strength protocol while allowing flexibility
 - Trigger: User completes a set and starts rest timer
-- Progression: Select exercise → Set weight/reps → Complete set → Start timer → Learn during rest → Next set
-- Success criteria: Timer counts down accurately, provides audio/visual alerts at completion
+- Progression: Select exercise → Set weight/reps → Complete set → Start timer → Learn during rest → Option to skip remaining time → Next set
+- Success criteria: Timer counts down accurately, persists when switching between tabs, provides audio/visual alerts at completion, allows skipping
+- Enhanced Features: Timer state persists across app navigation, users can skip remaining rest time with dedicated skip button
 
 **IT Security Education Module**
 - Functionality: Displays bite-sized security tips, concepts, and mini-quizzes during rest periods
@@ -42,7 +43,8 @@ A focused workout timer application that combines Starting Strength methodology 
 
 ## Edge Case Handling
 
-- **Timer Interruption**: Save current state if app is closed or phone call received during workout
+- **Timer Interruption**: Timer state persists automatically using local storage when app tabs are switched or app is closed/reopened during workout
+- **Timer Skip Option**: Users can skip remaining rest time with dedicated skip button when they feel ready to continue
 - **Offline Usage**: Core timer and logging functions work without internet connection
 - **Battery Optimization**: Prevent device sleep during active timer countdown
 - **Invalid Inputs**: Validate weight/rep entries and provide helpful error messages
@@ -88,7 +90,7 @@ Subtle and functional animations that enhance usability without distraction - sm
 
 - **Components**: 
   - Card components for exercise logging and security tips display
-  - Button variants for primary actions (start timer) and secondary (log set)
+  - Button variants for primary actions (start timer), secondary (pause), and destructive (skip timer)
   - Progress components for timer countdown and learning progress
   - Tabs for switching between workout days A/B
   - Dialog for detailed exercise instructions
@@ -100,12 +102,13 @@ Subtle and functional animations that enhance usability without distraction - sm
   - Security tip card with optional quiz integration
   
 - **States**: 
-  - Timer states: idle, active, paused, completed
+  - Timer states: idle, active, paused, completed, skipped - all states persist across tab navigation
   - Exercise states: planned, active, completed
   - Learning states: unread, reading, completed, mastered
   
 - **Icon Selection**: 
   - Play/Pause for timer controls
+  - FastForward for skip timer functionality  
   - CheckCircle for completed sets
   - BookOpen for learning modules
   - TrendingUp for progress tracking

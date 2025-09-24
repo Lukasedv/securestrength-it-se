@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
+import { useKV } from '@github/spark/hooks'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { Play, Pause, ArrowCounterClockwise } from '@phosphor-icons/react'
+import { Play, Pause, ArrowCounterClockwise, FastForward } from '@phosphor-icons/react'
 import { SecurityTipCard } from '@/components/SecurityTipCard'
 import { WorkoutDay } from '@/App'
 
@@ -13,20 +14,55 @@ interface WorkoutTimerProps {
   onWorkoutComplete: () => void
 }
 
+interface TimerState {
+  timeLeft: number
+  initialTime: number
+  timerRunning: boolean
+  workoutId: string
+}
+
 export function WorkoutTimer({ workout, isActive, onTimerStateChange, onWorkoutComplete }: WorkoutTimerProps) {
-  const [timeLeft, setTimeLeft] = useState(180) // 3 minutes default
-  const [initialTime, setInitialTime] = useState(180)
-  const [timerRunning, setTimerRunning] = useState(false)
+  const [timerState, setTimerState] = useKV<TimerState | null>('timer-state', null)
+  
+  // Initialize timer state if it doesn't exist or is for a different workout
+  const currentState = timerState?.workoutId === workout.id ? timerState : {
+    timeLeft: 180,
+    initialTime: 180,
+    timerRunning: false,
+    workoutId: workout.id
+  }
+
+  // Initialize timer state for new workout
+  useEffect(() => {
+    if (!timerState || timerState.workoutId !== workout.id) {
+      const newState = {
+        timeLeft: 180,
+        initialTime: 180,
+        timerRunning: false,
+        workoutId: workout.id
+      }
+      setTimerState(newState)
+    }
+  }, [workout.id, timerState, setTimerState])
+
+  // Sync timer state with parent component whenever timer running state changes
+  useEffect(() => {
+    if (timerState?.workoutId === workout.id) {
+      onTimerStateChange(timerState.timerRunning)
+    }
+  }, [timerState?.timerRunning, timerState?.workoutId, workout.id, onTimerStateChange])
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
     
-    if (timerRunning && timeLeft > 0) {
+    if (timerState?.workoutId === workout.id && timerState.timerRunning && timerState.timeLeft > 0) {
       interval = setInterval(() => {
-        setTimeLeft((time) => {
-          if (time <= 1) {
-            setTimerRunning(false)
-            onTimerStateChange(false)
+        setTimerState((prevState): TimerState | null => {
+          if (!prevState || prevState.workoutId !== workout.id) return prevState || null
+          
+          const newTimeLeft = prevState.timeLeft - 1
+          
+          if (newTimeLeft <= 0) {
             // Play completion sound (simple beep)
             const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
             const oscillator = audioContext.createOscillator()
@@ -43,9 +79,17 @@ export function WorkoutTimer({ workout, isActive, onTimerStateChange, onWorkoutC
             oscillator.start(audioContext.currentTime)
             oscillator.stop(audioContext.currentTime + 1)
             
-            return 0
+            return {
+              ...prevState,
+              timeLeft: 0,
+              timerRunning: false
+            }
           }
-          return time - 1
+          
+          return {
+            ...prevState,
+            timeLeft: newTimeLeft
+          }
         })
       }, 1000)
     }
@@ -53,24 +97,35 @@ export function WorkoutTimer({ workout, isActive, onTimerStateChange, onWorkoutC
     return () => {
       if (interval) clearInterval(interval)
     }
-  }, [timerRunning, timeLeft, onTimerStateChange])
+  }, [timerState?.timerRunning, timerState?.timeLeft, timerState?.workoutId, workout.id, setTimerState])
 
   const startTimer = (duration: number = 180) => {
-    setTimeLeft(duration)
-    setInitialTime(duration)
-    setTimerRunning(true)
-    onTimerStateChange(true)
+    setTimerState({
+      timeLeft: duration,
+      initialTime: duration,
+      timerRunning: true,
+      workoutId: workout.id
+    })
   }
 
   const pauseTimer = () => {
-    setTimerRunning(false)
-    onTimerStateChange(false)
+    setTimerState((prev) => prev ? { ...prev, timerRunning: false } : null)
   }
 
   const resetTimer = () => {
-    setTimerRunning(false)
-    setTimeLeft(initialTime)
-    onTimerStateChange(false)
+    setTimerState((prev) => prev ? { 
+      ...prev, 
+      timerRunning: false, 
+      timeLeft: prev.initialTime 
+    } : null)
+  }
+
+  const skipTimer = () => {
+    setTimerState((prev) => prev ? { 
+      ...prev, 
+      timerRunning: false, 
+      timeLeft: 0 
+    } : null)
   }
 
   const formatTime = (seconds: number) => {
@@ -79,7 +134,9 @@ export function WorkoutTimer({ workout, isActive, onTimerStateChange, onWorkoutC
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  const progress = ((initialTime - timeLeft) / initialTime) * 100
+  // Get current timer state, falling back to defaults
+  const displayState = timerState?.workoutId === workout.id ? timerState : currentState
+  const progress = displayState.initialTime > 0 ? ((displayState.initialTime - displayState.timeLeft) / displayState.initialTime) * 100 : 0
 
   const currentExercise = workout.exercises.find(ex => !ex.completed)
   const completedExercises = workout.exercises.filter(ex => ex.completed).length
@@ -107,16 +164,16 @@ export function WorkoutTimer({ workout, isActive, onTimerStateChange, onWorkoutC
 
           <div className="space-y-4">
             <div className="text-6xl font-bold tabular-nums text-primary">
-              {formatTime(timeLeft)}
+              {formatTime(displayState.timeLeft)}
             </div>
             
             <Progress value={progress} className="h-2" />
             
-            <div className="flex justify-center gap-3">
+            <div className="flex justify-center gap-2 flex-wrap">
               <Button
                 size="lg"
                 onClick={() => startTimer(180)}
-                disabled={timerRunning}
+                disabled={displayState.timerRunning}
                 className="flex items-center gap-2"
               >
                 <Play size={20} />
@@ -125,23 +182,34 @@ export function WorkoutTimer({ workout, isActive, onTimerStateChange, onWorkoutC
               <Button
                 size="lg"
                 onClick={() => startTimer(300)}
-                disabled={timerRunning}
+                disabled={displayState.timerRunning}
                 variant="secondary"
                 className="flex items-center gap-2"
               >
                 <Play size={20} />
                 5 min
               </Button>
-              {timerRunning ? (
-                <Button
-                  size="lg"
-                  onClick={pauseTimer}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  <Pause size={20} />
-                  Pause
-                </Button>
+              {displayState.timerRunning ? (
+                <>
+                  <Button
+                    size="lg"
+                    onClick={pauseTimer}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <Pause size={20} />
+                    Pause
+                  </Button>
+                  <Button
+                    size="lg"
+                    onClick={skipTimer}
+                    variant="destructive"
+                    className="flex items-center gap-2"
+                  >
+                    <FastForward size={20} />
+                    Skip
+                  </Button>
+                </>
               ) : (
                 <Button
                   size="lg"
@@ -158,7 +226,7 @@ export function WorkoutTimer({ workout, isActive, onTimerStateChange, onWorkoutC
         </CardContent>
       </Card>
 
-      {(timerRunning || timeLeft < initialTime) && (
+      {(displayState.timerRunning || displayState.timeLeft < displayState.initialTime) && (
         <SecurityTipCard />
       )}
 
