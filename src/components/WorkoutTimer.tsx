@@ -3,7 +3,7 @@ import { useKV } from '@github/spark/hooks'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { FastForward, CaretLeft, CaretRight, Shield, Sparkle } from '@phosphor-icons/react'
+import { FastForward, CaretLeft, CaretRight, Shield } from '@phosphor-icons/react'
 import { WorkoutDay, Exercise } from '@/App'
 
 interface WorkoutTimerProps {
@@ -22,55 +22,147 @@ interface SecurityQuestion {
   isGenerated?: boolean
 }
 
-// Fallback questions in case AI generation fails
-const FALLBACK_QUESTIONS: SecurityQuestion[] = [
+// CVE-based security questions
+const CVE_QUESTIONS: SecurityQuestion[] = [
   {
-    id: 'password-reuse',
-    question: 'Is it safe to use the same password for multiple accounts?',
-    answer: false,
-    explanation: 'No - Using the same password across multiple accounts creates a single point of failure.'
-  },
-  {
-    id: 'public-wifi-banking',
-    question: 'Should you do online banking on public Wi-Fi?',
-    answer: false,
-    explanation: 'No - Public Wi-Fi networks are often unsecured and can be monitored by attackers.'
-  },
-  {
-    id: 'software-updates',
-    question: 'Are software updates important for security?',
+    id: 'cve-2024-3400',
+    question: 'Can unauthenticated attackers get remote code execution on affected PAN-OS firewalls?',
     answer: true,
-    explanation: 'Yes - Updates often include critical security patches that fix vulnerabilities.'
+    explanation: 'Yes - CVE-2024-3400 is a critical vulnerability in PAN-OS GlobalProtect that allows remote code execution.',
+    source: 'CVE-2024-3400 (PAN-OS GlobalProtect RCE)'
   },
   {
-    id: 'email-links',
-    question: 'Should you click links in emails from unknown senders?',
-    answer: false,
-    explanation: 'No - Links from unknown senders could lead to malicious websites or downloads.'
-  },
-  {
-    id: 'two-factor-auth',
-    question: 'Does two-factor authentication make your accounts more secure?',
+    id: 'cve-2024-6387',
+    question: 'Is this an sshd race condition that can lead to remote code execution on many Linux systems?',
     answer: true,
-    explanation: 'Yes - 2FA adds an extra layer of security beyond just passwords.'
+    explanation: 'Yes - CVE-2024-6387 "regreSSHion" is a race condition in OpenSSH that can lead to remote code execution.',
+    source: 'CVE-2024-6387 (OpenSSH "regreSSHion")'
   },
   {
-    id: 'usb-devices',
-    question: 'Is it safe to plug in USB drives you find lying around?',
-    answer: false,
-    explanation: 'No - Unknown USB devices could contain malware or be part of a social engineering attack.'
-  },
-  {
-    id: 'backup-importance',
-    question: 'Are regular backups important for data security?',
+    id: 'cve-2024-3094',
+    question: 'Did a compromised release of xz/liblzma introduce a backdoor reachable via OpenSSH?',
     answer: true,
-    explanation: 'Yes - Backups protect against data loss from ransomware, hardware failure, or accidents.'
+    explanation: 'Yes - CVE-2024-3094 involved a sophisticated backdoor in XZ Utils that could be triggered through SSH connections.',
+    source: 'CVE-2024-3094 (XZ Utils backdoor)'
   },
   {
-    id: 'social-media-info',
-    question: 'Should you share personal information like your address on social media?',
-    answer: false,
-    explanation: 'No - Personal information on social media can be used by attackers for identity theft or social engineering.'
+    id: 'cve-2023-34362',
+    question: 'Was this SQL injection widely exploited to drop web shells at scale?',
+    answer: true,
+    explanation: 'Yes - CVE-2023-34362 in MOVEit Transfer was a SQL injection vulnerability exploited by threat actors to deploy web shells.',
+    source: 'CVE-2023-34362 (MOVEit Transfer SQLi)'
+  },
+  {
+    id: 'cve-2023-4966',
+    question: 'Can session tokens be stolen and reused to hijack valid sessions?',
+    answer: true,
+    explanation: 'Yes - CVE-2023-4966 "Citrix Bleed" allows attackers to steal session tokens and hijack authenticated sessions.',
+    source: 'CVE-2023-4966 (Citrix/NetScaler "Bleed")'
+  },
+  {
+    id: 'cve-2018-13379',
+    question: 'Is this an old path-traversal bug that attackers still use for initial access?',
+    answer: true,
+    explanation: 'Yes - CVE-2018-13379 in Fortinet FortiOS SSL-VPN is an old vulnerability still actively exploited for initial access.',
+    source: 'CVE-2018-13379 (Fortinet FortiOS SSL-VPN)'
+  },
+  {
+    id: 'cve-2021-44228',
+    question: 'Does a crafted JNDI lookup in logs allow remote code execution?',
+    answer: true,
+    explanation: 'Yes - CVE-2021-44228 Log4Shell allows remote code execution through malicious JNDI lookups in log messages.',
+    source: 'CVE-2021-44228 (Log4Shell)'
+  },
+  {
+    id: 'cve-2021-34527',
+    question: 'Can Windows Print Spooler lead to local privilege escalation or RCE?',
+    answer: true,
+    explanation: 'Yes - CVE-2021-34527 PrintNightmare affects Windows Print Spooler and can lead to privilege escalation or RCE.',
+    source: 'CVE-2021-34527 (PrintNightmare)'
+  },
+  {
+    id: 'cve-2021-26855',
+    question: 'Is this a server-side request forgery that enabled pre-auth compromise of Exchange?',
+    answer: true,
+    explanation: 'Yes - CVE-2021-26855 is part of ProxyLogon chain allowing pre-authentication compromise of Exchange servers.',
+    source: 'CVE-2021-26855 (Exchange ProxyLogon)'
+  },
+  {
+    id: 'cve-2021-34473',
+    question: 'Is this part of a chain that enables unauthenticated remote code execution on Exchange?',
+    answer: true,
+    explanation: 'Yes - CVE-2021-34473 is part of the ProxyShell vulnerability chain enabling unauthenticated RCE on Exchange.',
+    source: 'CVE-2021-34473 (Exchange ProxyShell)'
+  },
+  {
+    id: 'cve-2022-22965',
+    question: 'Can certain Spring MVC apps be exploited for remote code execution via data binding?',
+    answer: true,
+    explanation: 'Yes - CVE-2022-22965 Spring4Shell allows RCE in Spring MVC applications through malicious data binding.',
+    source: 'CVE-2022-22965 (Spring4Shell)'
+  },
+  {
+    id: 'cve-2022-26134',
+    question: 'Does an OGNL injection allow unauthenticated RCE on Confluence Server/Data Center?',
+    answer: true,
+    explanation: 'Yes - CVE-2022-26134 allows unauthenticated remote code execution through OGNL injection in Confluence.',
+    source: 'CVE-2022-26134 (Confluence OGNL RCE)'
+  },
+  {
+    id: 'cve-2019-19781',
+    question: 'Can path traversal let attackers execute code on Citrix appliances?',
+    answer: true,
+    explanation: 'Yes - CVE-2019-19781 is a path traversal vulnerability in Citrix ADC/Gateway that enables code execution.',
+    source: 'CVE-2019-19781 (Citrix ADC/Gateway traversal)'
+  },
+  {
+    id: 'cve-2020-5902',
+    question: 'Is the management UI vulnerable to unauthenticated RCE?',
+    answer: true,
+    explanation: 'Yes - CVE-2020-5902 affects F5 BIG-IP TMUI allowing unauthenticated remote code execution.',
+    source: 'CVE-2020-5902 (F5 BIG-IP TMUI RCE)'
+  },
+  {
+    id: 'cve-2022-30190',
+    question: 'Can a crafted document trigger code execution via the MSDT handler without macros?',
+    answer: true,
+    explanation: 'Yes - CVE-2022-30190 "Follina" allows code execution through Microsoft Support Diagnostic Tool without macros.',
+    source: 'CVE-2022-30190 ("Follina" MSDT)'
+  },
+  {
+    id: 'cve-2023-23397',
+    question: 'Can a malicious calendar item force Outlook to leak NTLM hashes automatically?',
+    answer: true,
+    explanation: 'Yes - CVE-2023-23397 causes Outlook to automatically leak NTLM hashes when processing malicious calendar items.',
+    source: 'CVE-2023-23397 (Outlook NTLM-leak)'
+  },
+  {
+    id: 'cve-2022-47966',
+    question: 'Does a SAML processing flaw allow unauthenticated RCE across multiple ManageEngine products?',
+    answer: true,
+    explanation: 'Yes - CVE-2022-47966 is a SAML processing vulnerability affecting multiple Zoho ManageEngine products.',
+    source: 'CVE-2022-47966 (Zoho ManageEngine SAML)'
+  },
+  {
+    id: 'cve-2023-3519',
+    question: 'Can unauthenticated attackers achieve code execution on vulnerable NetScaler ADC/Gateway?',
+    answer: true,
+    explanation: 'Yes - CVE-2023-3519 allows unauthenticated code execution on Citrix ADC and Gateway appliances.',
+    source: 'CVE-2023-3519 (Citrix ADC code injection)'
+  },
+  {
+    id: 'cve-2020-1472',
+    question: 'Can Netlogon cryptographic weakness enable domain controller takeover?',
+    answer: true,
+    explanation: 'Yes - CVE-2020-1472 "Zerologon" exploits Netlogon cryptographic flaws to enable domain controller compromise.',
+    source: 'CVE-2020-1472 ("Zerologon")'
+  },
+  {
+    id: 'cve-2023-22515',
+    question: 'Can attackers create admin accounts by abusing an authentication bypass in Confluence Data Center/Server?',
+    answer: true,
+    explanation: 'Yes - CVE-2023-22515 allows attackers to create admin accounts through an authentication bypass vulnerability.',
+    source: 'CVE-2023-22515 (Confluence auth bypass)'
   }
 ]
 
@@ -87,7 +179,6 @@ interface WorkoutSession {
   currentQuestion?: SecurityQuestion
   showQuizResult: boolean
   userAnswer?: boolean
-  isGeneratingQuestion?: boolean
 }
 
 const DEFAULT_SESSION: WorkoutSession = {
@@ -100,47 +191,30 @@ const DEFAULT_SESSION: WorkoutSession = {
   timerRunning: false,
   canSkip: false,
   actualReps: 0,
-  showQuizResult: false,
-  isGeneratingQuestion: false
+  showQuizResult: false
 }
 
-// AI-generated questions cache
-let generatedQuestionsCache: SecurityQuestion[] = []
+// Track used questions to avoid repeats in a session
+let usedQuestionIds: string[] = []
 
-// Generate CVE-based security questions using AI
-async function generateCVEQuestion(): Promise<SecurityQuestion> {
-  try {
-    const promptText = `Based on recent CVE (Common Vulnerabilities and Exposures) findings and cybersecurity best practices, generate a simple yes/no security question that would be educational for general users.
-
-The question should be:
-- Related to current cybersecurity threats or vulnerabilities
-- Simple enough for non-technical users to understand
-- Educational and practical for everyday security
-- Can be answered with Yes or No
-
-Return your response as a JSON object with this exact format:
-{
-  "question": "Clear, simple question ending with a question mark",
-  "answer": true or false,
-  "explanation": "Brief explanation of why this answer is correct and what users should know"
-}`
-
-    const response = await window.spark.llm(promptText, 'gpt-4o-mini', true)
-    const parsed = JSON.parse(response)
-    
-    return {
-      id: `generated-${Date.now()}`,
-      question: parsed.question,
-      answer: parsed.answer,
-      explanation: parsed.explanation,
-      isGenerated: true,
-      source: 'AI Generated from current CVE data'
-    }
-  } catch (error) {
-    console.warn('Failed to generate CVE question, using fallback:', error)
-    // Return a random fallback question
-    return FALLBACK_QUESTIONS[Math.floor(Math.random() * FALLBACK_QUESTIONS.length)]
+// Get a random CVE question that hasn't been used recently
+function getRandomCVEQuestion(): SecurityQuestion {
+  // If all questions have been used, reset the used list
+  if (usedQuestionIds.length >= CVE_QUESTIONS.length) {
+    usedQuestionIds = []
   }
+  
+  // Get available questions
+  const availableQuestions = CVE_QUESTIONS.filter(q => !usedQuestionIds.includes(q.id))
+  
+  // Pick a random available question
+  const randomIndex = Math.floor(Math.random() * availableQuestions.length)
+  const selectedQuestion = availableQuestions[randomIndex]
+  
+  // Mark as used
+  usedQuestionIds.push(selectedQuestion.id)
+  
+  return selectedQuestion
 }
 
 export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) {
@@ -236,61 +310,28 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
     return workout.exercises[session.currentExerciseIndex] || null
   }
 
-  const getRandomQuestion = async (): Promise<SecurityQuestion> => {
-    // Try to get a cached generated question first
-    if (generatedQuestionsCache.length > 0) {
-      const randomIndex = Math.floor(Math.random() * generatedQuestionsCache.length)
-      return generatedQuestionsCache[randomIndex]
-    }
-    
-    // Generate a new question using AI
-    try {
-      const question = await generateCVEQuestion()
-      // Add to cache for future use (keep cache size reasonable)
-      generatedQuestionsCache.push(question)
-      if (generatedQuestionsCache.length > 10) {
-        generatedQuestionsCache = generatedQuestionsCache.slice(-10) // Keep last 10 questions
-      }
-      return question
-    } catch (error) {
-      console.warn('Failed to generate question, using fallback')
-      return FALLBACK_QUESTIONS[Math.floor(Math.random() * FALLBACK_QUESTIONS.length)]
-    }
+  const getRandomQuestion = (): SecurityQuestion => {
+    return getRandomCVEQuestion()
   }
 
-  const handleSetDone = async () => {
+  const handleSetDone = () => {
     if (repsCount <= 0 || !session) return
 
-    // Set generating state
+    // Get a CVE question immediately
+    const question = getRandomQuestion()
+
     setSession((prev: WorkoutSession) => ({
       ...prev,
-      isGeneratingQuestion: true,
       actualReps: repsCount,
       state: 'resting',
       timerRunning: true,
       timeLeft: 180,
       initialTime: 180,
       canSkip: false,
-      showQuizResult: false
+      showQuizResult: false,
+      currentQuestion: question,
+      isGeneratingQuestion: false
     }))
-
-    // Generate question asynchronously
-    try {
-      const question = await getRandomQuestion()
-      setSession((prev: WorkoutSession) => ({
-        ...prev,
-        currentQuestion: question,
-        isGeneratingQuestion: false
-      }))
-    } catch (error) {
-      // Fallback to a random static question
-      const fallbackQuestion = FALLBACK_QUESTIONS[Math.floor(Math.random() * FALLBACK_QUESTIONS.length)]
-      setSession((prev: WorkoutSession) => ({
-        ...prev,
-        currentQuestion: fallbackQuestion,
-        isGeneratingQuestion: false
-      }))
-    }
   }
 
   const handleQuizAnswer = (answer: boolean) => {
@@ -460,18 +501,11 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
             </div>
             <Button 
               onClick={handleSetDone}
-              disabled={repsCount <= 0 || session.isGeneratingQuestion}
+              disabled={repsCount <= 0}
               className="w-full"
               size="lg"
             >
-              {session.isGeneratingQuestion ? (
-                <div className="flex items-center gap-2">
-                  <Sparkle size={16} className="animate-spin" />
-                  Generating Question...
-                </div>
-              ) : (
-                'Set Done'
-              )}
+              Set Done
             </Button>
           </div>
         )}
@@ -501,31 +535,15 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
             )}
 
             {/* Security Quiz integrated into the same card */}
-            {(session.currentQuestion || session.isGeneratingQuestion) && (
+            {session.currentQuestion && (
               <div className="border-t pt-6">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-lg font-semibold">
                     <Shield size={20} className="text-primary" />
                     Security Quiz
-                    {session.currentQuestion?.isGenerated && (
-                      <div className="flex items-center gap-1 text-sm text-accent bg-accent/10 px-2 py-1 rounded-full">
-                        <Sparkle size={12} />
-                        AI Generated
-                      </div>
-                    )}
                   </div>
                   
-                  {session.isGeneratingQuestion ? (
-                    <div className="text-center space-y-3">
-                      <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                        <Sparkle size={16} className="animate-spin" />
-                        Generating security question based on latest CVEs...
-                      </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div className="h-full bg-primary animate-pulse rounded-full w-3/4"></div>
-                      </div>
-                    </div>
-                  ) : session.currentQuestion && !session.showQuizResult ? (
+                  {!session.showQuizResult ? (
                     <div className="space-y-3">
                       <p className="text-sm font-medium">{session.currentQuestion.question}</p>
                       {session.currentQuestion.source && (
@@ -551,7 +569,7 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
                         </Button>
                       </div>
                     </div>
-                  ) : session.currentQuestion && session.showQuizResult ? (
+                  ) : (
                     <div className="space-y-3 text-center">
                       <div className={`p-4 rounded-md ${
                         session.canSkip ? 'bg-accent/10 text-accent' : 'bg-destructive/10 text-destructive'
@@ -572,7 +590,7 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
                         </p>
                       )}
                     </div>
-                  ) : null}
+                  )}
                 </div>
               </div>
             )}
