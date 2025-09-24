@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle, Plus, Barbell } from '@phosphor-icons/react'
+import { CheckCircle, Plus, Barbell, Database } from '@phosphor-icons/react'
 import { WorkoutDay, Exercise } from '@/App'
+import { ProgressLogger } from '@/components/ProgressLogger'
 
 interface ExerciseLoggerProps {
   workout: WorkoutDay
@@ -27,6 +28,7 @@ export function ExerciseLogger({ workout, onWorkoutUpdate, onWorkoutComplete }: 
   const [workoutHistory, setWorkoutHistory] = useKV<WorkoutHistory[]>('workout-history', [])
   const [currentWeight, setCurrentWeight] = useState<Record<string, string>>({})
   const [currentReps, setCurrentReps] = useState<Record<string, string>>({})
+  const [showProgressLogger, setShowProgressLogger] = useState<string | null>(null)
 
   const updateExerciseWeight = (exerciseId: string, weight: string) => {
     setCurrentWeight(prev => ({ ...prev, [exerciseId]: weight }))
@@ -170,6 +172,16 @@ export function ExerciseLogger({ workout, onWorkoutUpdate, onWorkoutComplete }: 
                       </Button>
                     )}
 
+                    {/* Progress Logger Button - SQL Injection Demo */}
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowProgressLogger(showProgressLogger === exercise.id ? null : exercise.id)}
+                      className="w-full"
+                    >
+                      <Database size={16} className="mr-2" />
+                      {showProgressLogger === exercise.id ? 'Hide' : 'Log to Database'} (SQL Demo)
+                    </Button>
+
                     {exercise.completedSets > 0 && (
                       <div className="text-sm text-muted-foreground">
                         <p>Completed sets:</p>
@@ -181,6 +193,22 @@ export function ExerciseLogger({ workout, onWorkoutUpdate, onWorkoutComplete }: 
                           ))}
                         </div>
                       </div>
+                    )}
+
+                    {/* Progress Logger Component - SQL Injection Demo */}
+                    {showProgressLogger === exercise.id && (
+                      <ProgressLogger
+                        workoutId={workout.id}
+                        exerciseName={exercise.name}
+                        defaultReps={parseInt(currentReps[exercise.id]) || parseInt(exercise.targetReps)}
+                        defaultWeight={parseFloat(currentWeight[exercise.id]) || exercise.weight || 135}
+                        onLogSuccess={(result) => {
+                          console.log('Progress logged:', result)
+                          // Optionally close the logger on success
+                          // setShowProgressLogger(null)
+                        }}
+                        className="mt-4"
+                      />
                     )}
                   </CardContent>
                 </Card>

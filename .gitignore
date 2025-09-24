@@ -32,3 +32,8 @@ pids
 .devcontainer/
 
 .spark-workbench-id
+
+# Database files for SQL injection demo
+*.db
+*.sqlite
+*.sqlite3
