@@ -3,7 +3,7 @@ import { useKV } from '@github/spark/hooks'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { FastForward, CaretLeft, CaretRight, Shield } from '@phosphor-icons/react'
+import { FastForward, CaretLeft, CaretRight, Shield, Sparkle } from '@phosphor-icons/react'
 import { WorkoutDay, Exercise } from '@/App'
 
 interface WorkoutTimerProps {
@@ -18,9 +18,12 @@ interface SecurityQuestion {
   question: string
   answer: boolean // true = Yes, false = No
   explanation: string
+  source?: string // CVE number or source
+  isGenerated?: boolean
 }
 
-const SECURITY_QUESTIONS: SecurityQuestion[] = [
+// Fallback questions in case AI generation fails
+const FALLBACK_QUESTIONS: SecurityQuestion[] = [
   {
     id: 'password-reuse',
     question: 'Is it safe to use the same password for multiple accounts?',
@@ -84,6 +87,7 @@ interface WorkoutSession {
   currentQuestion?: SecurityQuestion
   showQuizResult: boolean
   userAnswer?: boolean
+  isGeneratingQuestion?: boolean
 }
 
 const DEFAULT_SESSION: WorkoutSession = {
@@ -96,31 +100,74 @@ const DEFAULT_SESSION: WorkoutSession = {
   timerRunning: false,
   canSkip: false,
   actualReps: 0,
-  showQuizResult: false
+  showQuizResult: false,
+  isGeneratingQuestion: false
+}
+
+// AI-generated questions cache
+let generatedQuestionsCache: SecurityQuestion[] = []
+
+// Generate CVE-based security questions using AI
+async function generateCVEQuestion(): Promise<SecurityQuestion> {
+  try {
+    const promptText = `Based on recent CVE (Common Vulnerabilities and Exposures) findings and cybersecurity best practices, generate a simple yes/no security question that would be educational for general users.
+
+The question should be:
+- Related to current cybersecurity threats or vulnerabilities
+- Simple enough for non-technical users to understand
+- Educational and practical for everyday security
+- Can be answered with Yes or No
+
+Return your response as a JSON object with this exact format:
+{
+  "question": "Clear, simple question ending with a question mark",
+  "answer": true or false,
+  "explanation": "Brief explanation of why this answer is correct and what users should know"
+}`
+
+    const response = await window.spark.llm(promptText, 'gpt-4o-mini', true)
+    const parsed = JSON.parse(response)
+    
+    return {
+      id: `generated-${Date.now()}`,
+      question: parsed.question,
+      answer: parsed.answer,
+      explanation: parsed.explanation,
+      isGenerated: true,
+      source: 'AI Generated from current CVE data'
+    }
+  } catch (error) {
+    console.warn('Failed to generate CVE question, using fallback:', error)
+    // Return a random fallback question
+    return FALLBACK_QUESTIONS[Math.floor(Math.random() * FALLBACK_QUESTIONS.length)]
+  }
 }
 
 export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) {
   const [session, setSession] = useKV<WorkoutSession>('workout-session', DEFAULT_SESSION)
   const [repsCount, setRepsCount] = useState(0)
   
-  // Reset session if workout changed
+  // Initialize session if it doesn't exist or workout changed
   useEffect(() => {
-    if (session && session.workoutId !== workout.id) {
-      const newSession = {
+    if (!session || session.workoutId !== workout.id) {
+      const newSession: WorkoutSession = {
         ...DEFAULT_SESSION,
-        workoutId: workout.id
+        workoutId: workout.id,
+        actualReps: 0
       }
       setSession(newSession)
       setRepsCount(0)
     }
   }, [workout.id, session, setSession])
 
-  // Initialize reps count based on current exercise
+  // Initialize reps count based on current exercise - only on input state
   useEffect(() => {
-    const exercise = getCurrentExercise()
-    if (exercise && session?.state === 'input') {
-      const targetReps = parseInt(exercise.targetReps) || 5
-      setRepsCount(targetReps)
+    if (session?.state === 'input') {
+      const exercise = getCurrentExercise()
+      if (exercise) {
+        const targetReps = parseInt(exercise.targetReps) || 5
+        setRepsCount(targetReps)
+      }
     }
   }, [session?.currentExerciseIndex, session?.state])
 
@@ -189,25 +236,61 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
     return workout.exercises[session.currentExerciseIndex] || null
   }
 
-  const getRandomQuestion = () => {
-    return SECURITY_QUESTIONS[Math.floor(Math.random() * SECURITY_QUESTIONS.length)]
+  const getRandomQuestion = async (): Promise<SecurityQuestion> => {
+    // Try to get a cached generated question first
+    if (generatedQuestionsCache.length > 0) {
+      const randomIndex = Math.floor(Math.random() * generatedQuestionsCache.length)
+      return generatedQuestionsCache[randomIndex]
+    }
+    
+    // Generate a new question using AI
+    try {
+      const question = await generateCVEQuestion()
+      // Add to cache for future use (keep cache size reasonable)
+      generatedQuestionsCache.push(question)
+      if (generatedQuestionsCache.length > 10) {
+        generatedQuestionsCache = generatedQuestionsCache.slice(-10) // Keep last 10 questions
+      }
+      return question
+    } catch (error) {
+      console.warn('Failed to generate question, using fallback')
+      return FALLBACK_QUESTIONS[Math.floor(Math.random() * FALLBACK_QUESTIONS.length)]
+    }
   }
 
-  const handleSetDone = () => {
+  const handleSetDone = async () => {
     if (repsCount <= 0 || !session) return
 
-    const question = getRandomQuestion()
+    // Set generating state
     setSession((prev: WorkoutSession) => ({
       ...prev,
+      isGeneratingQuestion: true,
       actualReps: repsCount,
       state: 'resting',
       timerRunning: true,
       timeLeft: 180,
       initialTime: 180,
       canSkip: false,
-      currentQuestion: question,
       showQuizResult: false
     }))
+
+    // Generate question asynchronously
+    try {
+      const question = await getRandomQuestion()
+      setSession((prev: WorkoutSession) => ({
+        ...prev,
+        currentQuestion: question,
+        isGeneratingQuestion: false
+      }))
+    } catch (error) {
+      // Fallback to a random static question
+      const fallbackQuestion = FALLBACK_QUESTIONS[Math.floor(Math.random() * FALLBACK_QUESTIONS.length)]
+      setSession((prev: WorkoutSession) => ({
+        ...prev,
+        currentQuestion: fallbackQuestion,
+        isGeneratingQuestion: false
+      }))
+    }
   }
 
   const handleQuizAnswer = (answer: boolean) => {
@@ -377,11 +460,18 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
             </div>
             <Button 
               onClick={handleSetDone}
-              disabled={repsCount <= 0}
+              disabled={repsCount <= 0 || session.isGeneratingQuestion}
               className="w-full"
               size="lg"
             >
-              Set Done
+              {session.isGeneratingQuestion ? (
+                <div className="flex items-center gap-2">
+                  <Sparkle size={16} className="animate-spin" />
+                  Generating Question...
+                </div>
+              ) : (
+                'Set Done'
+              )}
             </Button>
           </div>
         )}
@@ -411,17 +501,38 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
             )}
 
             {/* Security Quiz integrated into the same card */}
-            {session.currentQuestion && (
+            {(session.currentQuestion || session.isGeneratingQuestion) && (
               <div className="border-t pt-6">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-lg font-semibold">
                     <Shield size={20} className="text-primary" />
                     Security Quiz
+                    {session.currentQuestion?.isGenerated && (
+                      <div className="flex items-center gap-1 text-sm text-accent bg-accent/10 px-2 py-1 rounded-full">
+                        <Sparkle size={12} />
+                        AI Generated
+                      </div>
+                    )}
                   </div>
                   
-                  {!session.showQuizResult ? (
+                  {session.isGeneratingQuestion ? (
+                    <div className="text-center space-y-3">
+                      <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                        <Sparkle size={16} className="animate-spin" />
+                        Generating security question based on latest CVEs...
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-primary animate-pulse rounded-full w-3/4"></div>
+                      </div>
+                    </div>
+                  ) : session.currentQuestion && !session.showQuizResult ? (
                     <div className="space-y-3">
                       <p className="text-sm font-medium">{session.currentQuestion.question}</p>
+                      {session.currentQuestion.source && (
+                        <p className="text-xs text-muted-foreground italic">
+                          Source: {session.currentQuestion.source}
+                        </p>
+                      )}
                       <div className="flex gap-3">
                         <Button 
                           onClick={() => handleQuizAnswer(true)}
@@ -440,7 +551,7 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
                         </Button>
                       </div>
                     </div>
-                  ) : (
+                  ) : session.currentQuestion && session.showQuizResult ? (
                     <div className="space-y-3 text-center">
                       <div className={`p-4 rounded-md ${
                         session.canSkip ? 'bg-accent/10 text-accent' : 'bg-destructive/10 text-destructive'
@@ -449,6 +560,11 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
                           {session.canSkip ? '✅ Correct!' : '❌ Wrong answer, redo the last set.'}
                         </div>
                         <p className="text-sm">{session.currentQuestion.explanation}</p>
+                        {session.currentQuestion.source && (
+                          <p className="text-xs text-muted-foreground/80 mt-2 italic">
+                            Source: {session.currentQuestion.source}
+                          </p>
+                        )}
                       </div>
                       {session.canSkip && (
                         <p className="text-sm text-muted-foreground">
@@ -456,7 +572,7 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
                         </p>
                       )}
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             )}

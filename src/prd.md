@@ -26,9 +26,14 @@
 - **Success Criteria**: Users complete sets with proper rest periods and progression
 
 ### Integrated Security Quiz
-- **Functionality**: Yes/No cybersecurity questions during rest periods, integrated into the same interface as the timer
-- **Purpose**: Educate users on IT security during natural downtime
-- **Success Criteria**: Users learn security concepts and can skip rest if they answer correctly
+- **Functionality**: Yes/No cybersecurity questions during rest periods, integrated into the same interface as the timer, with AI-generated questions based on current CVE (Common Vulnerabilities and Exposures) data
+- **Purpose**: Educate users on current IT security threats and vulnerabilities during natural downtime
+- **Success Criteria**: Users learn about recent security threats and can skip rest if they answer correctly
+
+### AI Question Generation
+- **Functionality**: Uses generative AI to create educational security questions based on recent CVE findings and current cybersecurity threats
+- **Purpose**: Keep security education current and relevant to emerging threats
+- **Success Criteria**: Users receive fresh, timely security education that reflects the current threat landscape
 
 ### Rep Adjustment Interface
 - **Functionality**: Arrow-based controls (left/right) with target reps as default
@@ -117,6 +122,9 @@
 - **UI Consolidation**: Integrated security quiz directly into the timer card for cleaner, more focused interface
 - **State Management**: Enhanced session state to handle integrated quiz flow and rep adjustments
 - **User Experience**: Streamlined interaction flow reduces cognitive load during workouts
+- **AI-Powered Security Questions**: Implemented generative AI to create timely security questions based on current CVE data and emerging cybersecurity threats
+- **Dynamic Question Generation**: Questions are now generated in real-time, ensuring users learn about the most current security vulnerabilities and best practices
+- **Enhanced Visual Feedback**: Added loading states and AI generation indicators to provide clear feedback during question generation
 
 ## Reflection
-This integrated approach uniquely combines two essential modern skills - physical fitness and cybersecurity awareness - in a time-efficient manner that takes advantage of natural workout rest periods. The arrow-based rep adjustment and integrated quiz interface minimize interface complexity while maximizing learning effectiveness.
+This integrated approach uniquely combines two essential modern skills - physical fitness and cybersecurity awareness - in a time-efficient manner that takes advantage of natural workout rest periods. The arrow-based rep adjustment and integrated quiz interface minimize interface complexity while maximizing learning effectiveness. The addition of AI-generated questions based on current CVE data ensures that users stay informed about the latest cybersecurity threats and vulnerabilities, making their security education both current and practical.
