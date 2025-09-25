@@ -239,6 +239,7 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
       canSkip: false,
       userAnswer: undefined
     }) : null)
+    setFeedback('')
   }
 
   const handleAnswer = (userAnswer: boolean) => {
@@ -257,11 +258,11 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
       setUsedQuestions(prev => [...(prev || []), session.currentQuestion!.id])
     }
 
-    // Clear feedback after delay for correct answers
+    // Clear feedback after delay for correct answers only
     if (isCorrect) {
       setTimeout(() => {
         setFeedback('')
-      }, 2000)
+      }, 3000)
     }
   }
 
