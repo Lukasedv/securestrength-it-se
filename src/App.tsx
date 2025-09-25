@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { WorkoutTimer } from '@/components/WorkoutTimer'
 import { ExerciseLogger } from '@/components/ExerciseLogger'
 import { ProgressDashboard } from '@/components/ProgressDashboard'
-import { TrendUp, Timer, BookOpen } from '@phosphor-icons/react'
+import { TrendUp, Timer, BookOpen, ArrowCounterClockwise } from '@phosphor-icons/react'
 
 export interface Exercise {
   id: string
@@ -59,6 +60,8 @@ const STARTING_STRENGTH_PROGRAMS: WorkoutDay[] = [
 
 function App() {
   const [currentWorkout, setCurrentWorkout] = useKV<WorkoutDay | null>('current-workout', null)
+  const [, , deleteWorkoutSession] = useKV<any>('workout-session', null)
+  const [, , deleteUsedQuestions] = useKV<string[]>('used-security-questions', [])
   const [activeTab, setActiveTab] = useState('timer')
 
   const startWorkout = (workoutDay: WorkoutDay) => {
@@ -72,6 +75,14 @@ function App() {
 
   const completeWorkout = () => {
     setCurrentWorkout(null)
+    deleteWorkoutSession()
+    setActiveTab('timer')
+  }
+
+  const resetProgress = () => {
+    setCurrentWorkout(null)
+    deleteWorkoutSession()
+    deleteUsedQuestions()
     setActiveTab('timer')
   }
 
@@ -118,20 +129,32 @@ function App() {
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="timer" className="flex items-center gap-2">
-                <Timer size={16} />
-                Timer
-              </TabsTrigger>
-              <TabsTrigger value="logger" className="flex items-center gap-2">
-                <BookOpen size={16} />
-                Log Sets
-              </TabsTrigger>
-              <TabsTrigger value="progress" className="flex items-center gap-2">
-                <TrendUp size={16} />
-                Progress
-              </TabsTrigger>
-            </TabsList>
+            <div className="flex items-center justify-between mb-4">
+              <TabsList className="grid w-auto grid-cols-3">
+                <TabsTrigger value="timer" className="flex items-center gap-2">
+                  <Timer size={16} />
+                  Timer
+                </TabsTrigger>
+                <TabsTrigger value="logger" className="flex items-center gap-2">
+                  <BookOpen size={16} />
+                  Log Sets
+                </TabsTrigger>
+                <TabsTrigger value="progress" className="flex items-center gap-2">
+                  <TrendUp size={16} />
+                  Progress
+                </TabsTrigger>
+              </TabsList>
+              
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={resetProgress}
+                className="flex items-center gap-2"
+              >
+                <ArrowCounterClockwise size={16} />
+                Reset
+              </Button>
+            </div>
 
             <TabsContent value="timer" className="mt-6">
               <WorkoutTimer 

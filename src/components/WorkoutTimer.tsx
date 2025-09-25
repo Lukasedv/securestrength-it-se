@@ -210,7 +210,7 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
     if (!session?.currentQuestion) return
 
     const isCorrect = userAnswer === session.currentQuestion.answer
-    setFeedback(isCorrect ? 'Correct! 💪' : 'Not quite, but keep learning! 🔒')
+    setFeedback(isCorrect ? 'Correct! 💪' : 'Wrong answer, redo the last set.')
 
     setSession(prev => prev ? ({
       ...prev,
@@ -222,18 +222,11 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
       setUsedQuestions(prev => [...(prev || []), session.currentQuestion!.id])
     }
 
-    setTimeout(() => {
-      setSession(prev => prev ? ({
-        ...prev,
-        timerRunning: false,
-        actualReps: 0,
-        userAnswer: undefined
-      }) : null)
-      setFeedback('')
-    }, 2000)
-
+    // Don't auto-clear on incorrect answers - let user see the feedback
     if (isCorrect) {
-      moveToNextSet()
+      setTimeout(() => {
+        setFeedback('')
+      }, 1500)
     }
   }
 
@@ -254,6 +247,7 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
           timerRunning: false,
           canSkip: false,
           currentQuestion: undefined,
+          userAnswer: undefined,
           actualReps: 0
         }) : null)
       } else {
@@ -270,9 +264,12 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
         timerRunning: false,
         actualReps: 0,
         userAnswer: undefined,
-        canSkip: false
+        canSkip: false,
+        currentQuestion: undefined
       }) : null)
     }
+    
+    setFeedback('')
   }
 
   const skipRest = () => {
@@ -392,7 +389,7 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
                       Related to: {session.currentQuestion.source}
                     </p>
                   )}
-                  {!session.userAnswer && (
+                  {session.userAnswer === undefined && (
                     <div className="flex gap-2">
                       <Button 
                         onClick={() => handleAnswer(true)}
@@ -413,10 +410,31 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
                   {feedback && (
                     <div className="text-center mt-3 font-medium text-sm">
                       <span className={
-                        session.canSkip ? 'text-green-600' : 'text-orange-600'
+                        session.canSkip ? 'text-green-600' : 'text-red-600'
                       }>
                         {feedback}
                       </span>
+                      {!session.canSkip && (
+                        <div className="mt-2">
+                          <Button 
+                            onClick={() => {
+                              setSession(prev => prev ? ({
+                                ...prev,
+                                state: 'input',
+                                timerRunning: false,
+                                userAnswer: undefined,
+                                currentQuestion: undefined,
+                                canSkip: false
+                              }) : null)
+                              setFeedback('')
+                            }}
+                            variant="outline"
+                            size="sm"
+                          >
+                            Redo Set
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
