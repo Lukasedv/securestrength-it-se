@@ -1,19 +1,19 @@
 import { useState, useEffect } from 'react'
 import { useKV } from '@github/spark/hooks'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Minus, Plus } from '@phosphor-icons/react'
 import type { WorkoutDay } from '../App'
-
 interface SecurityQuestion {
-  id: string
   question: string
-  answer: boolean
-}
 
-const SECURITY_QUESTIONS: SecurityQuestion[] = [
+const SECURITY_QUESTIONS: Se
+    id: 'cve
+    answer: true,
   {
-    id: 'cve-2024-3400',
+ 
+
+    id: 'cve-2024-3094',
+   
+  {
     question: 'Can unauthenticated attackers get remote code execution on affected PAN-OS firewalls?',
     answer: true,
   },
@@ -63,20 +63,20 @@ const SECURITY_QUESTIONS: SecurityQuestion[] = [
     answer: true,
   },
   {
-    id: 'cve-2022-22965',
-    question: 'Can certain Spring MVC apps be exploited for remote code execution via data binding?',
-    answer: true,
+    question: 'Is the man
   },
+    id: 'cve-2022
+    
   {
-    id: 'cve-2022-26134',
-    question: 'Does an OGNL injection allow unauthenticated RCE on Confluence Server/Data Center?',
-    answer: true,
+    question: 'Can a mali
   },
+    id: 'cve-2022
+    
   {
-    id: 'cve-2019-19781',
-    question: 'Can path traversal let attackers execute code on Citrix appliances?',
-    answer: true,
+    question: 'Can unauth
   },
+    id: 'cve-2020
+    
   {
     id: 'cve-2020-5902',
     question: 'Is the management UI vulnerable to unauthenticated RCE?',
@@ -158,283 +158,282 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
   }
 
   const getCurrentExercise = () => {
-    if (!session) return null
-    return workout.exercises[session.currentExercise]
-  }
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
-
-  // Initialize session
-  useEffect(() => {
-    if (!session || session.workoutId !== workout.id) {
-      const currentExercise = workout.exercises[0]
-      setSession({
-        ...DEFAULT_SESSION,
-        workoutId: workout.id,
-        actualReps: parseInt(currentExercise?.targetReps || '0', 10) || 0
-      })
-    }
-  }, [workout.id, session, setSession])
-
-  // Timer countdown
-  useEffect(() => {
-    if (session?.timerRunning && session.timeLeft > 0) {
-      const interval = setInterval(() => {
-        setSession(prev => prev ? { ...prev, timeLeft: prev.timeLeft - 1 } : null)
-      }, 1000)
-      return () => clearInterval(interval)
-    }
-  }, [session?.timerRunning, session?.timeLeft, setSession])
-
-  const completeSet = () => {
     if (!session) return
-    const currentExercise = getCurrentExercise()
-    if (!currentExercise) return
+   
 
-    // Start rest timer with security question
-    const question = getRandomQuestion()
-    setUsedQuestions(prev => [...(prev || []), question.id])
-    setSession(prev => prev ? {
+    setUsedQuestions(prev => [...(prev || [
       ...prev,
-      state: 'rest',
       timeLeft: 180,
-      timerRunning: true,
       currentQuestion: question,
-      userAnswer: undefined,
-      canSkip: false
-    } : null)
-    setFeedback('')
-  }
+   
 
-  const handleSecurityAnswer = (answer: boolean) => {
-    if (!session?.currentQuestion) return
 
-    const isCorrect = answer === session.currentQuestion.answer
-    
+    if (!session?.c
+    const isCorrect = answer === session.currentQuestio
     if (isCorrect) {
-      setFeedback('✅ Correct! You can skip to the next set.')
-      setSession(prev => prev ? { ...prev, userAnswer: answer, canSkip: true } : null)
-    } else {
-      setFeedback('❌ Wrong answer, redo the last set.')
-      // Reset to repeat the set
-      setSession(prev => prev ? {
-        ...prev,
+      setSession(p
+      setFeedback('❌ Wrong 
+      setSession(prev => prev 
         state: 'input',
-        timerRunning: false,
-        actualReps: parseInt(getCurrentExercise()?.targetReps || '0', 10),
-        currentQuestion: undefined,
-        userAnswer: undefined,
-        canSkip: false
+        
+     
       } : null)
-      setFeedback('')
-    }
-  }
 
-  const skipRest = () => {
-    if (!session?.canSkip) return
-    nextSet()
-  }
 
+    if (!session?.c
+  }
   const nextSet = () => {
-    if (!session) return
     const currentExercise = getCurrentExercise()
-    if (!currentExercise) return
 
-    const nextSetNumber = session.currentSet + 1
     
-    if (nextSetNumber >= currentExercise.sets) {
-      // Move to next exercise
-      const nextExerciseIndex = session.currentExercise + 1
+     
       if (nextExerciseIndex >= workout.exercises.length) {
-        // Workout complete
-        onWorkoutComplete()
-        return
+
       }
-      
-      const nextExercise = workout.exercises[nextExerciseIndex]
-      setSession(prev => prev ? {
+      const nextExercise
         ...prev,
-        currentExercise: nextExerciseIndex,
         currentSet: 0,
-        state: 'input',
-        actualReps: parseInt(nextExercise?.targetReps || '0', 10) || 0,
-        timerRunning: false,
+
         currentQuestion: undefined,
-        userAnswer: undefined,
         canSkip: false
-      } : null)
     } else {
-      // Next set of same exercise
-      setSession(prev => prev ? {
-        ...prev,
-        currentSet: nextSetNumber,
-        state: 'input',
-        actualReps: parseInt(currentExercise?.targetReps || '0', 10) || 0,
-        timerRunning: false,
-        currentQuestion: undefined,
-        userAnswer: undefined,
+      setSession(prev => prev ?
+        curren
+        actualReps: 
+        currentQuest
         canSkip: false
-      } : null)
     }
-    setFeedback('')
   }
-
-  const adjustReps = (delta: number) => {
-    setSession(prev => prev ? {
-      ...prev,
-      actualReps: Math.max(0, prev.actualReps + delta)
+  const adjustReps =
+      ...prev
     } : null)
-  }
 
-  if (!session) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Loading...</CardTitle>
-        </CardHeader>
-      </Card>
-    )
-  }
 
-  if (session.currentExercise >= workout.exercises.length) {
-    return (
-      <Card>
         <CardHeader>
-          <CardTitle>🎉 Workout Complete!</CardTitle>
-          <CardDescription>Great job completing your workout!</CardDescription>
         </CardHeader>
+
+
+    
+        <CardHeader>
+          <CardDescription>Great job completing your workout!
         <CardContent>
-          <Button onClick={onWorkoutComplete}>
-            Finish Workout
-          </Button>
+            
         </CardContent>
-      </Card>
     )
-  }
 
-  const currentExercise = getCurrentExercise()
-  if (!currentExercise) return null
-
+  if (!currentEx
   return (
-    <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
           <div>
-            <CardTitle>
-              {currentExercise.name} - Set {session.currentSet + 1} of {currentExercise.sets}
-            </CardTitle>
-            <CardDescription>Target: {currentExercise.targetReps} reps</CardDescription>
-          </div>
+              {currentExercise.name
+            <CardDescription>T
         </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {feedback && (
-          <div className={`p-3 rounded-md text-sm ${
-            feedback.includes('✅') 
-              ? 'bg-green-50 text-green-700 border border-green-200' 
-              : 'bg-red-50 text-red-700 border border-red-200'
-          }`}>
-            {feedback}
-          </div>
-        )}
+      <CardCont
+          <div classN
+     
+   
 
-        {session.state === 'input' && (
-          <div className="text-center space-y-4">
-            <div className="text-sm text-muted-foreground">
-              Target: {currentExercise.targetReps} reps
-            </div>
-            
-            <div className="flex items-center justify-center gap-4">
-              <Button
-                variant="outline"
+
+          <div className="text-ce
+             
+   
+
                 size="sm"
-                disabled={session.actualReps <= 0}
-                onClick={() => adjustReps(-1)}
-              >
+                onClick=
                 <Minus size={16} />
-              </Button>
               
-              <div className="text-2xl font-bold min-w-[60px]">
-                {session.actualReps}
-              </div>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => adjustReps(1)}
-              >
-                <Plus size={16} />
-              </Button>
-            </div>
-            
-            <Button
-              className="w-full"
-              disabled={session.actualReps <= 0}
-              onClick={completeSet}
-            >
-              Complete Set - Start Rest Timer
-            </Button>
-          </div>
-        )}
 
-        {session.state === 'rest' && (
-          <div className="space-y-4">
-            <div className="text-center">
-              <div className="text-3xl font-bold mb-2">
-                {formatTime(session.timeLeft)}
-              </div>
-              <div className="text-sm text-muted-foreground">Rest Timer</div>
+              
+    
+                onClick={() => adjustReps(1)}
+                <Plus size={16
             </div>
+            <Button
+              disabled={ses
+            >
+            </
+       
+      
+            <div className="text-center">
+                {formatTime(sessi
+              <d
             
-            {session.currentQuestion && (
-              <div className="border rounded-lg p-4 space-y-4">
-                <div className="font-medium text-sm">
-                  Security Knowledge Check
-                </div>
+              <div cla
+                  Secur
                 <p className="text-sm">
-                  {session.currentQuestion.question}
                 </p>
-                <div className="flex gap-2">
                   <Button
-                    variant="outline"
                     size="sm"
-                    onClick={() => handleSecurityAnswer(true)}
-                    disabled={session.userAnswer !== undefined}
-                  >
-                    True
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleSecurityAnswer(false)}
-                    disabled={session.userAnswer !== undefined}
-                  >
-                    False
-                  </Button>
-                </div>
-              </div>
-            )}
+                    di
+               
             
-            {session.canSkip && (
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-2">
-                  Answer correct! You can skip the rest timer.
-                </p>
-                <Button
-                  variant="default"
-                  onClick={skipRest}
-                >
-                  Skip to Next Set
-                </Button>
-              </div>
+                    size="sm"
+                    disabled={ses
+                
+                </div>
             )}
-          </div>
+            {session.canSkip && (
+                <p className
+                </p>
+                  variant="def
+                >
+               
+     
         )}
-      </CardContent>
-    </Card>
-  )
-}
+   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
