@@ -1,67 +1,67 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { CaretLeft, CaretRight, Shield, Question } from '@phosphor-icons/react'
-import { useKV } from '@github/spark/hooks'
+import { CaretLeft, CaretRight, Shield, Quest
 
-interface SecurityQuestion {
   id: string
-  question: string
   answer: boolean
-  source: string
-}
 
-const SECURITY_QUESTIONS: SecurityQuestion[] = [
-  {
-    id: 'cve-2024-3094',
-    question: 'Did a compromised release of xz/liblzma introduce a backdoor reachable via OpenSSH?',
+const SECURITY_QUESTIONS: Se
+    id: 'cve
     answer: true,
-    source: 'CVE-2024-3094 (XZ Utils backdoor)'
   },
-  {
-    id: 'cve-2021-44228',
-    question: 'Does a crafted JNDI lookup in logs allow remote code execution?',
-    answer: true,
-    source: 'CVE-2021-44228 (Log4Shell)'
-  },
-  {
+    id: 'cve-202
+ 
+
     id: 'cve-2021-26855',
-    question: 'Is this a server-side request forgery that enabled pre-auth compromise of Exchange servers?',
-    answer: true,
-    source: 'CVE-2021-26855 (ProxyLogon)'
+   
   },
-  {
     id: 'cve-2022-22965',
-    question: 'Can certain Spring MVC apps be exploited for remote code execution via data binding?',
     answer: true,
-    source: 'CVE-2022-22965 (Spring4Shell)'
   },
-  {
-    id: 'cve-2023-3519',
-    question: 'Can path traversal let attackers execute code on Citrix appliances?',
-    answer: true,
-    source: 'CVE-2023-3519 (Citrix NetScaler ADC)'
+    
+   
   },
-  {
     id: 'cve-2022-30190',
-    question: 'Can a crafted document trigger code execution via the MSDT handler without macros?',
     answer: true,
-    source: 'CVE-2022-30190 (Follina)'
   }
-]
 
-interface WorkoutSession {
-  workoutId: string
-  currentExercise: number
+  w
   currentSet: number
-  state: 'input' | 'rest' | 'complete'
   timeLeft: number
-  actualReps: number
-  timerRunning: boolean
-  currentQuestion?: SecurityQuestion
+  timerRunning: b
   userAnswer?: boolean
+}
+int
+  onWorkoutComplete: () =
+
+  currentExercise
+  state: 'input',
+  ac
+  c
+
+  const [session, setSession] = useKV<WorkoutSession | null>('workout-session', null
+  const [feedback
+  const getRandomQuestion = (): SecurityQuestion =
+    
+   
+    }
+  }
+  const getCurren
+    return workout.exercises[session.c
+
+ 
+
+
+  useEffect(() => {
+      const currentExerci
+        ...DEFAULT_S
+        actualReps: parseInt(currentEx
+    }
+
+  useEffect(() => {
+      const interval = setInterval((
+      }, 1000)
   canSkip: boolean
 }
 
@@ -126,37 +126,37 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
       }, 1000)
       return () => clearInterval(interval)
     }
-  }, [session?.timerRunning, session?.timeLeft, setSession])
+          timeLeft: 180,
 
-  const handleRepsChange = (delta: number) => {
-    setSession(prev => prev ? { ...prev, actualReps: Math.max(0, prev.actualReps + delta) } : null)
-  }
+          userAnswer: undefined,
+        } : null)
+   
 
-  const startRest = () => {
-    const question = getRandomQuestion()
-    setSession(prev => prev ? {
-      ...prev,
-      state: 'rest',
-      timeLeft: 180,
-      timerRunning: true,
-      currentQuestion: question,
-      userAnswer: undefined,
-      canSkip: false
-    } : null)
-    setFeedback('')
+        currentSet: prev.cu
+        timeLeft: 180,
+        timerRunning: false,
+        userAn
+      } : null)
   }
+  if (!session) {
+      <Card>
+          <CardTitle>Loading
+      </Card>
+  }
+  if (session.state
+   
 
   const handleAnswerQuestion = (userAnswer: boolean) => {
-    if (!session?.currentQuestion) return
+          <Button onClick={onWorkoutCompl
 
     const isCorrect = userAnswer === session.currentQuestion.answer
     setSession(prev => prev ? { ...prev, userAnswer } : null)
-    setUsedQuestions(prev => [...(prev || []), session.currentQuestion!.id])
-    
-    if (isCorrect) {
-      setSession(prev => prev ? { ...prev, canSkip: true } : null)
-      setFeedback(`✅ Correct! ${session.currentQuestion.source}`)
-    } else {
+  const currentExercise = getCurrentExercise()
+
+    <Card>
+        <div className="flex items-center justify-between">
+            Exercise {session.currentExercise + 1} of {workout.ex
+          <B
       setFeedback(`❌ Wrong answer, redo the last set.`)
       // Reset to input state to redo the set
       setTimeout(() => {
@@ -171,105 +171,104 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
         } : null)
         setFeedback('')
       }, 2000)
-    }
-  }
+     
+   
 
-  const skipRest = () => {
-    const exercise = getCurrentExercise()
-    if (!exercise) return
+                type="numb
+                onChange={(e) => handleRe
+                placehold
 
-    if (session && session.currentSet + 1 >= exercise.sets) {
-      // Move to next exercise or complete workout
-      if (session.currentExercise + 1 >= workout.exercises.length) {
-        setSession(prev => prev ? { ...prev, state: 'complete' } : null)
-      } else {
-        const nextExercise = workout.exercises[session.currentExercise + 1]
-        setSession(prev => prev ? {
-          ...prev,
-          currentExercise: prev.currentExercise + 1,
-          currentSet: 0,
-          state: 'input',
-          timeLeft: 180,
-          actualReps: parseInt(nextExercise?.targetReps || '0', 10) || 0,
-          timerRunning: false,
-          currentQuestion: undefined,
-          userAnswer: undefined,
-          canSkip: false
-        } : null)
-      }
-    } else {
-      // Move to next set
-      setSession(prev => prev ? {
-        ...prev,
-        currentSet: prev.currentSet + 1,
-        state: 'input',
-        timeLeft: 180,
-        actualReps: parseInt(getCurrentExercise()?.targetReps || '0', 10) || 0,
-        timerRunning: false,
-        currentQuestion: undefined,
-        userAnswer: undefined,
-        canSkip: false
-      } : null)
-    }
-  }
-
-  if (!session) {
-    return (
-      <Card>
-        <CardHeader className="text-center">
-          <CardTitle>Loading workout...</CardTitle>
-        </CardHeader>
-      </Card>
-    )
-  }
-
-  if (session.state === 'complete') {
-    return (
-      <Card>
-        <CardHeader className="text-center">
-          <CardTitle>🎉 Workout Complete!</CardTitle>
-          <CardDescription>Great job finishing {workout.name}</CardDescription>
-        </CardHeader>
-        <CardContent className="text-center">
-          <Button onClick={onWorkoutComplete}>Start New Workout</Button>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  const currentExercise = getCurrentExercise()
-  if (!currentExercise) return null
-
-  return (
-    <Card>
-      <CardHeader className="text-center">
-        <div className="flex items-center justify-between">
-          <Badge variant="outline">
-            Exercise {session.currentExercise + 1} of {workout.exercises.length}
-          </Badge>
-          <Badge variant="outline">
-            Set {session.currentSet + 1} of {currentExercise.sets}
-          </Badge>
-        </div>
-        <CardTitle className="text-2xl mt-4">{currentExercise.name}</CardTitle>
-        <CardDescription>
-          Target: {currentExercise.targetReps} reps
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {session.state === 'input' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-center gap-4">
-              <Button
                 variant="outline"
-                size="icon"
-                onClick={() => handleRepsChange(-1)}
-                disabled={session.actualReps <= 0}
-              >
-                <CaretLeft />
-              </Button>
-              
-              <Input
+                onClick={() => handleRepsChange(1)
+                <CaretRight />
+            </div>
+            <B
+              onClick={startRest}
+            >
+            </Button>
+        )}
+        {session.state ==
+            <div classNa
+                {formatT
+              <p className="te
+
+              <div className="bg
+                  <Shiel
+                <
+       
+            
+                  </div>
+                  {session.userAn
+                
+                        variant="outline
+                       
+                      
+                      
+                        vari
+                        className="
+                        False
+                    </
+               
+     
+   
+
+                 
+            
+            
+              </div>
+
+              variant
+             
+     
+   
+
+    </Card>
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 type="number"
                 value={session.actualReps}
                 onChange={(e) => handleRepsChange(Number(e.target.value) - session.actualReps)}
@@ -338,17 +337,10 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
                       </Button>
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      <div className="text-sm">
-                        <p className={`font-medium ${feedback.includes('✅') ? 'text-green-600' : 'text-red-600'}`}>
-                          {feedback}
-                        </p>
-                      </div>
-                      {session.canSkip && (
-                        <div className="text-xs text-muted-foreground">
-                          You can now skip the rest timer or wait for it to complete.
-                        </div>
-                      )}
+                    <div className="text-sm">
+                      <p className={`font-medium ${feedback.includes('✅') ? 'text-green-600' : 'text-red-600'}`}>
+                        {feedback}
+                      </p>
                     </div>
                   )}
                 </div>
