@@ -3,7 +3,15 @@ import { useKV } from '@github/spark/hooks'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle, Shield, Lock, Eye } from '@phosphor-icons/react'
+import { Input } from '@/components/ui/input'
+import { CheckCircle, Shield, Lock, Eye, ChatCircle } from '@phosphor-icons/react'
+
+interface Comment {
+  id: string
+  text: string
+  author: string
+  timestamp: string
+}
 
 interface SecurityTip {
   id: string
@@ -83,13 +91,30 @@ const SECURITY_TIPS: SecurityTip[] = [
   }
 ]
 
+// Vulnerable comment rendering component (DO NOT USE IN PRODUCTION)
+const CommentDisplay = ({ comment }: { comment: Comment }) => {
+  return (
+    <div className="border rounded-md p-3 bg-muted/30">
+      <div className="flex justify-between items-start mb-2">
+        <span className="font-medium text-sm">{comment.author}</span>
+        <span className="text-xs text-muted-foreground">{comment.timestamp}</span>
+      </div>
+      <div dangerouslySetInnerHTML={{ __html: comment.text }} />
+    </div>
+  )
+}
+
 export function SecurityTipCard() {
   const [completedTips, setCompletedTips] = useKV<string[]>('completed-security-tips', [])
+  const [comments, setComments] = useKV<Record<string, Comment[]>>('tip-comments', {})
   const [currentTip, setCurrentTip] = useState<SecurityTip | null>(null)
   const [showQuiz, setShowQuiz] = useState(false)
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
   const [quizCompleted, setQuizCompleted] = useState(false)
   const [isCorrect, setIsCorrect] = useState(false)
+  const [showComments, setShowComments] = useState(false)
+  const [newComment, setNewComment] = useState('')
+  const [commentAuthor, setCommentAuthor] = useState('Anonymous')
 
   useEffect(() => {
     const availableTips = SECURITY_TIPS.filter(tip => !completedTips?.includes(tip.id))
@@ -117,6 +142,25 @@ export function SecurityTipCard() {
       const correct = selectedAnswer === currentTip.quiz.correct
       setIsCorrect(correct)
       setQuizCompleted(true)
+    }
+  }
+
+  const addComment = () => {
+    if (currentTip && newComment.trim()) {
+      const comment: Comment = {
+        id: Date.now().toString(),
+        text: newComment, // Vulnerable: No sanitization!
+        author: commentAuthor,
+        timestamp: new Date().toLocaleTimeString()
+      }
+      
+      const tipComments = comments?.[currentTip.id] || []
+      setComments(current => ({
+        ...current,
+        [currentTip.id]: [...tipComments, comment]
+      }))
+      
+      setNewComment('')
     }
   }
 
@@ -200,6 +244,59 @@ export function SecurityTipCard() {
             {isCorrect ? '✅ Correct! Great job.' : '❌ Not quite right, but good effort!'}
           </div>
         )}
+
+        {/* Comments Section */}
+        <div className="border-t pt-4">
+          <Button
+            onClick={() => setShowComments(!showComments)}
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2 mb-3"
+          >
+            <ChatCircle size={16} />
+            Comments ({comments?.[currentTip.id]?.length || 0})
+          </Button>
+
+          {showComments && (
+            <div className="space-y-4">
+              {/* Existing Comments */}
+              <div className="space-y-3 max-h-60 overflow-y-auto">
+                {comments?.[currentTip.id]?.map((comment) => (
+                  <CommentDisplay key={comment.id} comment={comment} />
+                ))}
+                {(!comments?.[currentTip.id] || comments[currentTip.id].length === 0) && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No comments yet. Be the first to share your thoughts!
+                  </p>
+                )}
+              </div>
+
+              {/* Comment Form */}
+              <div className="space-y-2 border-t pt-3">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Your name"
+                    value={commentAuthor}
+                    onChange={(e) => setCommentAuthor(e.target.value)}
+                    className="flex-1"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add a comment... (supports HTML)"
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    className="flex-1"
+                    onKeyDown={(e) => e.key === 'Enter' && addComment()}
+                  />
+                  <Button onClick={addComment} size="sm">
+                    Post
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="flex justify-between items-center text-xs text-muted-foreground">
           <span>{completedTips?.length || 0} / {SECURITY_TIPS.length} tips completed</span>
