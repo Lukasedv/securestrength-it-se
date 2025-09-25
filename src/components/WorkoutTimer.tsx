@@ -109,9 +109,11 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
   // Initialize session
   useEffect(() => {
     if (!session || session.workoutId !== workout.id) {
+      const currentExercise = workout.exercises[0]
       setSession({
         ...DEFAULT_SESSION,
-        workoutId: workout.id
+        workoutId: workout.id,
+        actualReps: parseInt(currentExercise?.targetReps || '0', 10) || 0
       })
     }
   }, [workout.id, session, setSession])
@@ -144,16 +146,31 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
     setFeedback('')
   }
 
-  const handleAnswerQuestion = (isCorrect: boolean) => {
+  const handleAnswerQuestion = (userAnswer: boolean) => {
     if (!session?.currentQuestion) return
 
+    const isCorrect = userAnswer === session.currentQuestion.answer
+    setSession(prev => prev ? { ...prev, userAnswer } : null)
     setUsedQuestions(prev => [...(prev || []), session.currentQuestion!.id])
     
     if (isCorrect) {
       setSession(prev => prev ? { ...prev, canSkip: true } : null)
       setFeedback(`✅ Correct! ${session.currentQuestion.source}`)
     } else {
-      setFeedback(`❌ Incorrect. ${session.currentQuestion.source}`)
+      setFeedback(`❌ Wrong answer, redo the last set.`)
+      // Reset to input state to redo the set
+      setTimeout(() => {
+        setSession(prev => prev ? {
+          ...prev,
+          state: 'input',
+          actualReps: parseInt(getCurrentExercise()?.targetReps || '0', 10) || 0,
+          timerRunning: false,
+          currentQuestion: undefined,
+          userAnswer: undefined,
+          canSkip: false
+        } : null)
+        setFeedback('')
+      }, 2000)
     }
   }
 
@@ -166,13 +183,14 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
       if (session.currentExercise + 1 >= workout.exercises.length) {
         setSession(prev => prev ? { ...prev, state: 'complete' } : null)
       } else {
+        const nextExercise = workout.exercises[session.currentExercise + 1]
         setSession(prev => prev ? {
           ...prev,
           currentExercise: prev.currentExercise + 1,
           currentSet: 0,
           state: 'input',
           timeLeft: 180,
-          actualReps: 0,
+          actualReps: parseInt(nextExercise?.targetReps || '0', 10) || 0,
           timerRunning: false,
           currentQuestion: undefined,
           userAnswer: undefined,
@@ -186,7 +204,7 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
         currentSet: prev.currentSet + 1,
         state: 'input',
         timeLeft: 180,
-        actualReps: 0,
+        actualReps: parseInt(getCurrentExercise()?.targetReps || '0', 10) || 0,
         timerRunning: false,
         currentQuestion: undefined,
         userAnswer: undefined,
@@ -320,10 +338,17 @@ export function WorkoutTimer({ workout, onWorkoutComplete }: WorkoutTimerProps) 
                       </Button>
                     </div>
                   ) : (
-                    <div className="text-sm">
-                      <p className={`font-medium ${feedback.includes('✅') ? 'text-green-600' : 'text-red-600'}`}>
-                        {feedback}
-                      </p>
+                    <div className="space-y-2">
+                      <div className="text-sm">
+                        <p className={`font-medium ${feedback.includes('✅') ? 'text-green-600' : 'text-red-600'}`}>
+                          {feedback}
+                        </p>
+                      </div>
+                      {session.canSkip && (
+                        <div className="text-xs text-muted-foreground">
+                          You can now skip the rest timer or wait for it to complete.
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
